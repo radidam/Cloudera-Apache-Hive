@@ -1,0 +1,369 @@
+
+
+//Hive - Create Hive tables as testfile format
+
+create table learn_create (
+Id Int,
+Name String )
+Row format delimited fields terminated by ','
+stored as textFile;
+
+
+
+create table learn_orders (
+order_id int,
+order_date string ,
+order_customer_id int,
+order_status string
+)
+row format delimited fields terminated by ','
+stored as textFile;
+
+
+
+
+//Loading data from local OS to Hive table
+
+//Append
+load data local inpath '/home/cloudera/workspace/learning_data/data-master/retail_db/orders' into table learn.learn_orders
+
+
+// Truncate + Load
+load data local  inpath '/home/cloudera/workspace/learning_data/data-master/retail_db/orders' overwrite into table learn.learn_orders  
+
+//Loading data from HDFS to Hive table
+load data    inpath '<HDFS Location>' into table learn.learn_ord
+
+
+
+
+create table learn_order_items (
+order_item_id int,
+order_item_order_id int,
+order_item_product_id int,
+order_item_quantity int,
+order_item_subtotal float,
+order_item_product_price float 
+)
+row format delimited fields terminated by ','
+stored as textFile;
+
+// Truncate + Load
+load data local  inpath '/home/cloudera/workspace/learning_data/data-master/retail_db/order_items' overwrite into table learn.learn_order_items
+
+
+
+
+
+
+//Hive - Create Hive tables as ORC File format
+
+
+create table learn_orders_orc (
+order_id int,
+order_date string ,
+order_customer_id int,
+order_status string
+)
+stored as orc;
+
+
+// Load Data into Orc File : From Textfile format data
+
+insert into learn_orders_orc 
+Select * from learn_orders
+
+
+create table learn_order_items_orc (
+order_item_id int,
+order_item_order_id int,
+order_item_product_id int,
+order_item_quantity int,
+order_item_subtotal float,
+order_item_product_price float 
+) 
+stored as orc;
+
+insert into learn_order_items_orc
+select * from learn_order_items;
+
+
+
+
+
+// Functions
+
+show functions;
+
+//details of a function - Syntax & symantics
+describe function length;
+
+
+// String based Functions;
+
+substr or substring
+instr
+like
+rlike
+length
+lcase or lower 
+upper
+ltrim
+rtrim
+lpad
+rpad
+
+// To try functions - Create hive table and load data 
+
+create table learn_customers (
+customer_id int   ,
+customer_fname varchar(45) ,
+customer_lname varchar(45) ,
+customer_email varchar(45) ,
+customer_password varchar(45) ,
+customer_street varchar(255)  ,
+customer_city varchar(45)     ,
+customer_state varchar(45)    ,
+customer_zipcode varchar(45)   
+)
+row format delimited fields terminated by ',' 
+stored as textFile;
+
+// Load data from local OS file
+
+load data local inpath '/home/cloudera/workspace/learning_data/data-master/retail_db/customers' overwrite into table learn.learn_customers ;
+
+
+
+// substr or substring
+
+describe function substr;
+select substring ('This is a test',6,2);
+
+
+//instr
+describe function instr;
+select instr ('This is a test','i');
+
+//like
+describe function like;
+select 'This is a test' like ('Thi%');
+
+//rlike
+describe function rlike; //regular expressions
+
+
+length
+lcase or lower 
+upper
+ltrim
+rtrim
+lpad
+rpad
+Initcap
+cast
+split - converts string to a list
+index - get the nth position in the list
+
+// date functions
+
+current_date
+current_timestamp
+date_add
+date_format
+day
+to_date
+
+// Aggretate - Functions
+
+select count(1) from order_items;
+
+select sum(order_item_subtotal) from order_items;
+
+select count(1), count(distinct order_status) from orders;
+
+//function - CASE
+describe function case;
+
+Select  distinct order_status from orders;
+
+CANCELED
+CLOSED
+COMPLETE
+ON_HOLD
+PAYMENT_REVIEW
+PENDING
+PENDING_PAYMENT
+PROCESSING
+SUSPECTED_FRAUD
+
+
+Select order_status, case  when order_status in ('COMPLETE' , 'CLOSED') Then 'NO ACTION' ELSE 'ACTION'END from orders limit 10;
+
+Select '1', order_status , Test from (
+Select order_status, case  when order_status in ('COMPLETE' , 'CLOSED') Then 'NO ACTION' ELSE 'ACTION'END TEST from orders) a limit 2; 
+
+// Row Level Transformations
+
+select concat( substr(order_date,1,4), substr(order_date,6,2) ) from orders limit 10;
+
+select cast(concat( substr(order_date,1,4), substr(order_date,6,2) ) as int) from orders limit 10;
+
+
+select date_format(order_date, 'yyyyMM' ) from orders limit 10;
+
+select cast(date_format(order_date, 'yyyyMM')as int ) from orders limit 10;
+
+
+
+// Joins
+
+
+Select c.*, o.* from learn_customers c join learn_orders o on  o.order_customer_id = c.customer_id  limit 10;
+
+Left outer join
+
+Right outer join
+
+
+
+// Aggregation
+
+select order_status, count(1) from orders group by order_status;
+
+
+select * from learn_orders o join learn_order_items oi on cast(oi.order_item_order_id as int)= cast(o.order_id as int) limit 10; 
+
+select o.*, c.* from customers c left outer join orders o
+on o.order_customer_id = c.customer_id
+limit 10;
+
+select o.order_id, o.order_date, o.order_status, round(sum(oi.order_item_subtotal), 2) order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id, o.order_date, o.order_status
+having sum(oi.order_item_subtotal) >= 1000;
+
+
+// Sorting
+
+Order by - Sort by global
+
+
+select o.order_id, o.order_date, o.order_status, round(sum(oi.order_item_subtotal), 2) 
+order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id, o.order_date, o.order_status
+having sum(oi.order_item_subtotal) >= 1000
+order by o.order_date desc, o.order_id asc , order_revenue desc ;
+
+
+distrubute by , sort by -- Scalability
+
+select o.order_id, o.order_date, o.order_status, round(sum(oi.order_item_subtotal), 2) 
+order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id, o.order_date, o.order_status
+having sum(oi.order_item_subtotal) >= 1000
+distribute by o.order_date desc sort by  o.order_id asc , order_revenue desc ;
+
+
+
+// Set functions
+
+union
+union all
+
+
+// Analytical Functions - Aggregations
+
+over (partition by)
+
+select o.order_date, o.order_id, o.order_status
+,oi.order_item_subtotal
+, round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) order_revenue
+,oi.order_item_subtotal
+/ round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) revenue_Percentage
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+distribute by o.order_date  sort by o.order_date desc, o.order_id asc , order_revenue desc 
+
+//Analytic function - Ranking 
+
+select * from (
+select o.order_id, o.order_date, o.order_status, oi.order_item_subtotal, 
+round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) order_revenue,
+oi.order_item_subtotal/round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) pct_revenue,
+round(avg(oi.order_item_subtotal) over (partition by o.order_id), 2) avg_revenue,
+rank() over (partition by o.order_id order by oi.order_item_subtotal desc) rnk_revenue,
+dense_rank() over (partition by o.order_id order by oi.order_item_subtotal desc) dense_rnk_revenue,
+percent_rank() over (partition by o.order_id order by oi.order_item_subtotal desc) pct_rnk_revenue,
+row_number() over (partition by o.order_id order by oi.order_item_subtotal desc) rn_orderby_revenue,
+row_number() over (partition by o.order_id) rn_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')) q
+where order_revenue >= 1000
+order by order_date, order_revenue desc, rnk_revenue;
+
+// Windowing Functions
+//Lead, Lag, First_Value, Last_Value
+
+select o.order_id, o.order_date, o.order_status, oi.order_item_subtotal, 
+lead( oi.order_item_subtotal) over (partition by o.order_id order by oi.order_item_subtotal desc) lead_rec,
+lag( oi.order_item_subtotal) over (partition by o.order_id order by oi.order_item_subtotal desc) lag_rec,
+first_value( oi.order_item_subtotal) over (partition by o.order_id order by oi.order_item_subtotal desc) first_rec,
+last_value( oi.order_item_subtotal) over (partition by o.order_id order by oi.order_item_subtotal desc ) last_rec
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+order by o.order_date desc, o.order_id ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
